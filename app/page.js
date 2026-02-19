@@ -102,41 +102,53 @@ export default function HomePage() {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    setStatus("Cargando /model.glb...");
     const loader = new GLTFLoader();
-    loader.load(
-      "/model.glb",
-      (gltf) => {
-        const model = gltf.scene || gltf.scenes?.[0];
-        if (!model) {
-          setStatus("Modelo vacio. Mostrando respaldo.");
-          return;
-        }
-        headGroup.clear();
-        model.traverse((node) => {
-          if (node.isMesh) {
-            node.castShadow = true;
-            node.receiveShadow = true;
-          }
-        });
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const scale = 2.2 / maxDim;
-        model.position.sub(center);
-        model.scale.setScalar(scale);
-        model.rotation.y = 0;
-        model.position.y = -0.2;
-        headGroup.add(model);
-        setStatus("Modelo cargado.");
-      },
-      undefined,
-      (error) => {
-        console.error("Error cargando /model.glb:", error);
-        setStatus("No se pudo cargar /model.glb. Revisa el archivo en public/model.glb.");
+    const candidates = ["/model-compressed.glb", "/model.glb"];
+
+    const loadModel = (index) => {
+      const modelPath = candidates[index];
+      if (!modelPath) {
+        setStatus("No se pudo cargar ningun modelo (.glb). Revisa public/model.glb.");
+        return;
       }
-    );
+
+      setStatus(`Cargando ${modelPath}...`);
+      loader.load(
+        modelPath,
+        (gltf) => {
+          const model = gltf.scene || gltf.scenes?.[0];
+          if (!model) {
+            setStatus("Modelo vacio. Mostrando respaldo.");
+            return;
+          }
+          headGroup.clear();
+          model.traverse((node) => {
+            if (node.isMesh) {
+              node.castShadow = true;
+              node.receiveShadow = true;
+            }
+          });
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          const scale = 2.2 / maxDim;
+          model.position.sub(center);
+          model.scale.setScalar(scale);
+          model.rotation.y = 0;
+          model.position.y = -0.2;
+          headGroup.add(model);
+          setStatus(`Modelo cargado: ${modelPath}`);
+        },
+        undefined,
+        (error) => {
+          console.warn(`Fallo cargando ${modelPath}, intentando respaldo...`, error);
+          loadModel(index + 1);
+        }
+      );
+    };
+
+    loadModel(0);
 
     const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const rot = { yaw: 0, pitch: 0, vyaw: 0, vpitch: 0 };

@@ -45,3 +45,6 @@ Original prompt: ponlo en sensibilidad maxima por defecto y que los contorles es
 - Nuevo bloque agregado debajo del 3D: seccion `Física Elástica` en Next.
 - Implementado personaje rojo con comportamiento de resorte (spring + friction), deformacion por velocidad y ojos que siguen al mouse.
 - Estilos alineados a la referencia: fondo azul completo, titulo superior centrado y esfera roja con ojos.
+
+- Preparado flujo de compresion de GLB: agregado `scripts/compress-model.sh`.
+- La app ahora intenta cargar primero `/model-compressed.glb` y hace fallback automatico a `/model.glb`.
