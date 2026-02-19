@@ -37,6 +37,47 @@
             height: 300px;
         }
 
+        .head3d-stage {
+            width: min(82vw, 560px);
+            height: min(82vw, 560px);
+            max-height: 72vh;
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.16);
+            background: radial-gradient(circle at 30% 20%, #36427a 0%, #15182c 65%, #0a0b14 100%);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+        }
+
+        #head3dCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .head3d-fallback {
+            text-align: center;
+            opacity: 0.85;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+        }
+
+        .head3d-status {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.55);
+            border: 1px solid rgba(255,255,255,0.18);
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            color: rgba(255,255,255,0.92);
+            z-index: 2;
+            pointer-events: none;
+        }
+
         .character {
             width: 100%;
             height: 100%;
@@ -48,6 +89,9 @@
                 inset 0 -10px 30px rgba(0,0,0,0.2),
                 inset 0 10px 30px rgba(255,255,255,0.3);
             transition: transform 0.1s ease-out;
+            transform-style: preserve-3d;
+            transform-origin: center center;
+            will-change: transform;
         }
 
         /* Ojos que siguen al mouse */
@@ -268,12 +312,39 @@
         ============================================ */
         .controls {
             position: fixed;
-            top: 20px;
+            top: 72px;
             right: 20px;
             background: rgba(0,0,0,0.8);
             padding: 20px;
             border-radius: 15px;
             z-index: 1000;
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(-10px) scale(0.98);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .controls.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .controls-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            background: rgba(0,0,0,0.85);
+            color: #ffd700;
+            cursor: pointer;
+            z-index: 1001;
+            font-size: 22px;
+            line-height: 1;
             backdrop-filter: blur(10px);
         }
 
@@ -364,11 +435,12 @@
 <body>
 
     <!-- Controles -->
-    <div class="controls">
+    <button class="controls-toggle" id="controlsToggle" type="button" aria-label="Abrir controles">⚙️</button>
+    <div class="controls" id="controlsPanel">
         <h3>⚙️ Controles</h3>
         <div class="control-group">
             <label>Sensibilidad</label>
-            <input type="range" id="sensitivity" min="1" max="10" value="5">
+            <input type="range" id="sensitivity" min="1" max="10" value="10">
         </div>
         <div class="control-group">
             <label>Modo de Seguimiento</label>
@@ -385,21 +457,14 @@
 
     <!-- SECCIÓN 1: Personaje Clásico con Ojos -->
     <section class="hero-section">
-        <h2 class="section-title">Ojos que Siguen</h2>
-        <div class="character-container" id="character1">
-            <div class="hat"></div>
-            <div class="character" id="face">
-                <div class="eyes-container">
-                    <div class="eye">
-                        <div class="pupil"></div>
-                    </div>
-                    <div class="eye">
-                        <div class="pupil"></div>
-                    </div>
-                </div>
-                <div class="mouth" id="mouth"></div>
-            </div>
+        <h2 class="section-title">Cara 3D Real</h2>
+        <div class="head3d-stage" id="head3dStage">
+            <canvas id="head3dCanvas"></canvas>
+            <div class="head3d-status" id="head3dStatus">Cargando escena 3D...</div>
         </div>
+        <p class="head3d-fallback" id="head3dFallback" style="display: none;">
+            No se pudo cargar la escena 3D.
+        </p>
     </section>
 
     <!-- SECCIÓN 2: Efecto 3D Tilt -->
@@ -474,7 +539,7 @@
         let mouseX = window.innerWidth / 2;
         let mouseY = window.innerHeight / 2;
         let currentMode = 'direct';
-        let sensitivity = 0.5;
+        let sensitivity = 1;
 
         // Física para modo spring
         let physicsX = window.innerWidth / 2;
@@ -483,6 +548,7 @@
         let velocityY = 0;
         const friction = 0.9;
         const spring = 0.03;
+        let head3D = null;
 
         // ==========================================
         // INICIALIZACIÓN
@@ -501,6 +567,7 @@
             }
         }
         createParticles();
+        bootstrapHead3D();
 
         // Track mouse
         document.addEventListener('mousemove', (e) => {
@@ -513,6 +580,13 @@
             sensitivity = e.target.value / 10;
         });
 
+        const controlsToggle = document.getElementById('controlsToggle');
+        const controlsPanel = document.getElementById('controlsPanel');
+
+        controlsToggle.addEventListener('click', () => {
+            controlsPanel.classList.toggle('open');
+        });
+
         function setMode(mode) {
             currentMode = mode;
             document.querySelectorAll('.mode-btn').forEach(btn => {
@@ -521,44 +595,257 @@
             event.target.classList.add('active');
         }
 
-        // ==========================================
-        // SECCIÓN 1: OJOS QUE SIGUEN (Directo)
-        // ==========================================
-        function updateEyes() {
-            const eyes = document.querySelectorAll('.eye');
-            const pupils = document.querySelectorAll('.pupil');
-            const mouth = document.getElementById('mouth');
-            const face = document.getElementById('face');
+        function loadScriptWithFallback(urls) {
+            return new Promise((resolve, reject) => {
+                let index = 0;
 
-            eyes.forEach((eye, index) => {
-                const rect = eye.getBoundingClientRect();
-                const eyeCenterX = rect.left + rect.width / 2;
-                const eyeCenterY = rect.top + rect.height / 2;
+                function tryNext() {
+                    if (index >= urls.length) {
+                        reject(new Error('No se pudo cargar script'));
+                        return;
+                    }
 
-                const angle = Math.atan2(mouseY - eyeCenterY, mouseX - eyeCenterX);
-                const distance = Math.min(
-                    Math.hypot(mouseX - eyeCenterX, mouseY - eyeCenterY),
-                    15 * sensitivity
-                );
+                    const script = document.createElement('script');
+                    script.src = urls[index++];
+                    script.onload = () => resolve(script.src);
+                    script.onerror = () => tryNext();
+                    document.head.appendChild(script);
+                }
 
-                const pupilX = Math.cos(angle) * distance;
-                const pupilY = Math.sin(angle) * distance;
+                tryNext();
+            });
+        }
 
-                pupils[index].style.transform = `translate(calc(-50% + ${pupilX}px), calc(-50% + ${pupilY}px))`;
+        async function bootstrapHead3D() {
+            const status = document.getElementById('head3dStatus');
+            status.textContent = 'Cargando librerias 3D...';
+
+            try {
+                await loadScriptWithFallback([
+                    './vendor/three.min.js',
+                    'https://unpkg.com/three@0.164.1/build/three.min.js',
+                    'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r164/three.min.js'
+                ]);
+                await loadScriptWithFallback([
+                    './vendor/GLTFLoader.js',
+                    'https://unpkg.com/three@0.164.1/examples/js/loaders/GLTFLoader.js',
+                    'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/js/loaders/GLTFLoader.js'
+                ]);
+                status.textContent = 'Librerias 3D cargadas. Iniciando escena...';
+                initHead3D();
+            } catch (err) {
+                document.getElementById('head3dFallback').style.display = 'block';
+                status.textContent = 'No se pudo cargar three.js/GLTFLoader. Necesitas internet o copiar libs en /vendor.';
+                console.error('Error cargando librerias 3D:', err);
+            }
+        }
+
+        function buildProceduralHead(headGroup) {
+            const skin = new THREE.MeshStandardMaterial({
+                color: 0xe7c48f,
+                roughness: 0.52,
+                metalness: 0.06
+            });
+            const dark = new THREE.MeshStandardMaterial({
+                color: 0x1a1f31,
+                roughness: 0.75
+            });
+            const white = new THREE.MeshStandardMaterial({
+                color: 0xf7f8ff,
+                roughness: 0.42
             });
 
-            // Mover la boca según la posición Y del mouse
-            const mouthOpen = Math.max(10, Math.min(50, (mouseY / window.innerHeight) * 50));
-            mouth.style.height = mouthOpen + 'px';
-            mouth.style.borderRadius = `0 0 ${mouthOpen * 2}px ${mouthOpen * 2}px`;
+            const skull = new THREE.Mesh(new THREE.SphereGeometry(1.18, 64, 64), skin);
+            skull.castShadow = true;
+            headGroup.add(skull);
 
-            // Rotar cara ligeramente hacia el mouse
-            const faceRect = face.getBoundingClientRect();
-            const faceCenterX = faceRect.left + faceRect.width / 2;
-            const rotateY = ((mouseX - faceCenterX) / window.innerWidth) * 20 * sensitivity;
-            const rotateX = ((mouseY - faceRect.top) / window.innerHeight) * -20 * sensitivity;
-            
-            face.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+            const earL = new THREE.Mesh(new THREE.SphereGeometry(0.23, 24, 24), skin);
+            earL.scale.set(0.8, 1.05, 0.55);
+            earL.position.set(-1.07, 0.08, 0);
+            headGroup.add(earL);
+
+            const earR = earL.clone();
+            earR.position.x = 1.07;
+            headGroup.add(earR);
+
+            const eyeSocketL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 32), white);
+            eyeSocketL.position.set(-0.42, 0.2, 0.98);
+            headGroup.add(eyeSocketL);
+
+            const eyeSocketR = eyeSocketL.clone();
+            eyeSocketR.position.x = 0.42;
+            headGroup.add(eyeSocketR);
+
+            const pupilL = new THREE.Mesh(new THREE.SphereGeometry(0.09, 24, 24), dark);
+            pupilL.position.set(-0.42, 0.2, 1.15);
+            headGroup.add(pupilL);
+
+            const pupilR = pupilL.clone();
+            pupilR.position.x = 0.42;
+            headGroup.add(pupilR);
+
+            const nose = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.45, 20), skin);
+            nose.position.set(0, -0.05, 1.2);
+            nose.rotation.x = Math.PI / 2;
+            headGroup.add(nose);
+
+            const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.035, 16, 48, Math.PI), dark);
+            mouth.position.set(0, -0.5, 1.02);
+            mouth.rotation.z = Math.PI;
+            headGroup.add(mouth);
+
+            const hatBrim = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.08, 48), dark);
+            hatBrim.position.set(0, 1.08, 0);
+            headGroup.add(hatBrim);
+
+            const hatCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.88, 0.55, 48), dark);
+            hatCrown.position.set(0, 1.37, 0);
+            headGroup.add(hatCrown);
+        }
+
+        function loadMainModel(headGroup) {
+            if (!THREE.GLTFLoader) {
+                const status = document.getElementById('head3dStatus');
+                status.textContent = 'GLTFLoader no disponible. Mostrando cabeza de respaldo.';
+                return;
+            }
+
+            const status = document.getElementById('head3dStatus');
+            status.textContent = 'Cargando modelo Meshy_AI_Crystal_Golem_Behemot_0219171347_texture.glb...';
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                'Meshy_AI_Crystal_Golem_Behemot_0219171347_texture.glb',
+                (gltf) => {
+                    const model = gltf.scene || gltf.scenes[0];
+                    if (!model) return;
+
+                    headGroup.clear();
+                    model.traverse((node) => {
+                        if (node.isMesh) {
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+
+                    const box = new THREE.Box3().setFromObject(model);
+                    const size = box.getSize(new THREE.Vector3());
+                    const center = box.getCenter(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+                    const scale = 2.2 / maxDim;
+
+                    model.position.sub(center);
+                    model.scale.setScalar(scale);
+                    model.rotation.y = Math.PI;
+                    model.position.y = -0.2;
+                    headGroup.add(model);
+                    status.textContent = 'Modelo cargado correctamente.';
+                },
+                undefined,
+                (error) => {
+                    console.error('No se pudo cargar Meshy_AI_Crystal_Golem_Behemot_0219171347_texture.glb:', error);
+                    const maybeFileProtocol = window.location.protocol === 'file:';
+                    status.textContent = maybeFileProtocol
+                        ? 'Error al cargar .glb desde file://. Abre con servidor local (ej. python -m http.server).'
+                        : 'No se pudo cargar el .glb. Mostrando cabeza de respaldo.';
+                }
+            );
+        }
+
+        function initHead3D() {
+            if (!window.THREE) {
+                document.getElementById('head3dFallback').style.display = 'block';
+                const status = document.getElementById('head3dStatus');
+                status.textContent = 'No cargó three.js (revisa internet/CDN).';
+                return;
+            }
+
+            const stage = document.getElementById('head3dStage');
+            const canvas = document.getElementById('head3dCanvas');
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111424);
+
+            const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+            camera.position.set(0, 0.2, 4.5);
+
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                antialias: true,
+                alpha: false
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+
+            const ambient = new THREE.AmbientLight(0xFFF4D8, 0.65);
+            scene.add(ambient);
+
+            const keyLight = new THREE.DirectionalLight(0xFFFFFF, 1.05);
+            keyLight.position.set(2.4, 3, 3.5);
+            keyLight.castShadow = true;
+            scene.add(keyLight);
+
+            const rim = new THREE.DirectionalLight(0x6FA8FF, 0.4);
+            rim.position.set(-3, 1.8, -2.5);
+            scene.add(rim);
+
+            const headGroup = new THREE.Group();
+            scene.add(headGroup);
+            buildProceduralHead(headGroup);
+            loadMainModel(headGroup);
+
+            const floor = new THREE.Mesh(
+                new THREE.CircleGeometry(3, 48),
+                new THREE.MeshStandardMaterial({ color: 0x0d1020, roughness: 0.95, metalness: 0.02 })
+            );
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -1.55;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            function resizeHead3D() {
+                const width = stage.clientWidth;
+                const height = stage.clientHeight;
+                renderer.setSize(width, height, false);
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+            }
+
+            resizeHead3D();
+            window.addEventListener('resize', resizeHead3D);
+
+            head3D = {
+                stage,
+                renderer,
+                scene,
+                camera,
+                headGroup,
+                yaw: 0,
+                pitch: 0
+            };
+        }
+
+        // ==========================================
+        // SECCIÓN 1: CARA 3D (three.js)
+        // ==========================================
+        function updateHead3D() {
+            if (!head3D) return;
+
+            const rect = head3D.stage.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const nx = (mouseX - cx) / (rect.width / 2);
+            const ny = (mouseY - cy) / (rect.height / 2);
+            const maxYaw = 0.72 * sensitivity;
+            const maxPitch = 0.46 * sensitivity;
+            const targetYaw = Math.max(-maxYaw, Math.min(maxYaw, nx * maxYaw));
+            const targetPitch = Math.max(-maxPitch, Math.min(maxPitch, -ny * maxPitch));
+
+            head3D.yaw += (targetYaw - head3D.yaw) * 0.12;
+            head3D.pitch += (targetPitch - head3D.pitch) * 0.12;
+
+            head3D.headGroup.rotation.y = head3D.yaw;
+            head3D.headGroup.rotation.x = head3D.pitch;
+            head3D.renderer.render(head3D.scene, head3D.camera);
         }
 
         // ==========================================
@@ -680,7 +967,7 @@
         // LOOP PRINCIPAL
         // ==========================================
         function animate() {
-            updateEyes();
+            updateHead3D();
             updateTilt();
             updatePhysics();
             updateSVG();
