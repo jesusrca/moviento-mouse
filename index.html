@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personaje Interactivo - Mouse Follow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: white;
+        }
+
+        /* ============================================
+           ESTILO 1: PERSONAJE 2D CLÁSICO CON OJOS QUE SIGUEN
+        ============================================ */
+        .hero-section {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: radial-gradient(circle at center, #2d3561 0%, #1a1a2e 100%);
+        }
+
+        .character-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+        }
+
+        .character {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(145deg, #f0e6d2 0%, #d4af37 50%, #b8941f 100%);
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.5),
+                inset 0 -10px 30px rgba(0,0,0,0.2),
+                inset 0 10px 30px rgba(255,255,255,0.3);
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Ojos que siguen al mouse */
+        .eyes-container {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 30px;
+        }
+
+        .eye {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .pupil {
+            width: 25px;
+            height: 25px;
+            background: #1a1a2e;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out;
+        }
+
+        .pupil::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            right: 3px;
+        }
+
+        /* Boca que se mueve según la posición */
+        .mouth {
+            position: absolute;
+            bottom: 25%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 40px;
+            border-bottom: 4px solid #1a1a2e;
+            border-radius: 0 0 40px 40px;
+            transition: all 0.3s ease;
+        }
+
+        /* Sombrero decorativo (estilo tu imagen) */
+        .hat {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 80px;
+            background: linear-gradient(145deg, #e6d5a8 0%, #c9b896 100%);
+            border-radius: 50% 50% 20% 20%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .hat::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 60px;
+            background: linear-gradient(145deg, #e6d5a8 0%, #c9b896 100%);
+            border-radius: 50% 50% 0 0;
+        }
+
+        /* ============================================
+           ESTILO 2: PERSONAJE 3D CON TILT (Efecto profundidad)
+        ============================================ */
+        .tilt-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            perspective: 1000px;
+        }
+
+        .tilt-card {
+            width: 400px;
+            height: 500px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        .tilt-character {
+            width: 200px;
+            height: 200px;
+            background: linear-gradient(145deg, #ffd700 0%, #ffed4e 50%, #daa520 100%);
+            border-radius: 50%;
+            position: relative;
+            transform: translateZ(50px);
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.4),
+                inset 0 -10px 30px rgba(0,0,0,0.2);
+        }
+
+        .tilt-eyes {
+            position: absolute;
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+
+        .tilt-eye {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tilt-pupil {
+            width: 15px;
+            height: 15px;
+            background: #1a1a2e;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* ============================================
+           ESTILO 3: PERSONAJE CON FÍSICA (Spring follow)
+        ============================================ */
+        .physics-section {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .physics-character {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #c92a2a);
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 
+                0 10px 30px rgba(0,0,0,0.3),
+                inset -5px -5px 20px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        .physics-character::before {
+            content: '👀';
+            filter: grayscale(100%) brightness(2);
+        }
+
+        .trail {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 107, 107, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* ============================================
+           ESTILO 4: MÁSCARA SVG CON DISTORSIÓN
+        ============================================ */
+        .svg-section {
+            min-height: 100vh;
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .svg-character {
+            width: 400px;
+            height: 400px;
+            filter: drop-shadow(0 20px 40px rgba(255,215,0,0.3));
+        }
+
+        .face-group {
+            transform-origin: center;
+            transition: transform 0.3s ease-out;
+        }
+
+        /* ============================================
+           CONTROLES Y UI
+        ============================================ */
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls h3 {
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            accent-color: #ffd700;
+        }
+
+        .mode-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+        }
+
+        .mode-btn:hover, .mode-btn.active {
+            background: #ffd700;
+            color: #1a1a2e;
+        }
+
+        .section-title {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        /* Efecto de partículas */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(255,215,0,0.5);
+            border-radius: 50%;
+            animation: float 10s infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) translateX(50px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Controles -->
+    <div class="controls">
+        <h3>⚙️ Controles</h3>
+        <div class="control-group">
+            <label>Sensibilidad</label>
+            <input type="range" id="sensitivity" min="1" max="10" value="5">
+        </div>
+        <div class="control-group">
+            <label>Modo de Seguimiento</label>
+            <div class="mode-buttons">
+                <button class="mode-btn active" onclick="setMode('direct')">Directo</button>
+                <button class="mode-btn" onclick="setMode('smooth')">Suave</button>
+                <button class="mode-btn" onclick="setMode('spring')">Elástico</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Partículas de fondo -->
+    <div class="particles" id="particles"></div>
+
+    <!-- SECCIÓN 1: Personaje Clásico con Ojos -->
+    <section class="hero-section">
+        <h2 class="section-title">Ojos que Siguen</h2>
+        <div class="character-container" id="character1">
+            <div class="hat"></div>
+            <div class="character" id="face">
+                <div class="eyes-container">
+                    <div class="eye">
+                        <div class="pupil"></div>
+                    </div>
+                    <div class="eye">
+                        <div class="pupil"></div>
+                    </div>
+                </div>
+                <div class="mouth" id="mouth"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECCIÓN 2: Efecto 3D Tilt -->
+    <section class="tilt-section">
+        <h2 class="section-title">Efecto 3D Tilt</h2>
+        <div class="tilt-card" id="tiltCard">
+            <div class="tilt-character">
+                <div class="tilt-eyes">
+                    <div class="tilt-eye"><div class="tilt-pupil" id="tiltPupil1"></div></div>
+                    <div class="tilt-eye"><div class="tilt-pupil" id="tiltPupil2"></div></div>
+                </div>
+            </div>
+            <h3 style="margin-top: 30px; transform: translateZ(30px);">Mueve el mouse</h3>
+            <p style="opacity: 0.7; transform: translateZ(20px);">Efecto de profundidad parallax</p>
+        </div>
+    </section>
+
+    <!-- SECCIÓN 3: Física Elástica -->
+    <section class="physics-section" id="physicsSection">
+        <h2 class="section-title">Física Elástica</h2>
+        <div class="physics-character" id="physicsChar"></div>
+    </section>
+
+    <!-- SECCIÓN 4: SVG Morphing -->
+    <section class="svg-section">
+        <h2 class="section-title">Distorsión SVG</h2>
+        <svg class="svg-character" viewBox="0 0 400 400" id="svgChar">
+            <defs>
+                <radialGradient id="grad1" cx="30%" cy="30%">
+                    <stop offset="0%" style="stop-color:#fff5d7;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#f0e6d2;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#d4af37;stop-opacity:1" />
+                </radialGradient>
+                <filter id="glow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+            </defs>
+            
+            <g class="face-group" id="faceGroup">
+                <!-- Cara base -->
+                <circle cx="200" cy="200" r="150" fill="url(#grad1)" filter="url(#glow)"/>
+                
+                <!-- Ojos SVG -->
+                <g id="svgEyes">
+                    <circle cx="160" cy="180" r="30" fill="white"/>
+                    <circle cx="240" cy="180" r="30" fill="white"/>
+                    <circle id="svgPupil1" cx="160" cy="180" r="12" fill="#1a1a2e"/>
+                    <circle id="svgPupil2" cx="240" cy="180" r="12" fill="#1a1a2e"/>
+                </g>
+                
+                <!-- Boca -->
+                <path id="svgMouth" d="M 150 250 Q 200 280 250 250" 
+                      stroke="#1a1a2e" stroke-width="4" fill="none" stroke-linecap="round"/>
+                
+                <!-- Sombrero -->
+                <path d="M 100 120 Q 200 80 300 120 L 280 100 Q 200 60 120 100 Z" 
+                      fill="#e6d5a8" opacity="0.9"/>
+                <path d="M 150 100 L 150 60 Q 200 40 250 60 L 250 100" 
+                      fill="#e6d5a8" opacity="0.9"/>
+            </g>
+        </svg>
+    </section>
+
+    <script>
+        // ==========================================
+        // VARIABLES GLOBALES
+        // ==========================================
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let currentMode = 'direct';
+        let sensitivity = 0.5;
+
+        // Física para modo spring
+        let physicsX = window.innerWidth / 2;
+        let physicsY = window.innerHeight / 2;
+        let velocityX = 0;
+        let velocityY = 0;
+        const friction = 0.9;
+        const spring = 0.03;
+
+        // ==========================================
+        // INICIALIZACIÓN
+        // ==========================================
+        
+        // Crear partículas
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 50; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.animationDelay = Math.random() * 10 + 's';
+                p.style.animationDuration = (10 + Math.random() * 10) + 's';
+                container.appendChild(p);
+            }
+        }
+        createParticles();
+
+        // Track mouse
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Controles
+        document.getElementById('sensitivity').addEventListener('input', (e) => {
+            sensitivity = e.target.value / 10;
+        });
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // ==========================================
+        // SECCIÓN 1: OJOS QUE SIGUEN (Directo)
+        // ==========================================
+        function updateEyes() {
+            const eyes = document.querySelectorAll('.eye');
+            const pupils = document.querySelectorAll('.pupil');
+            const mouth = document.getElementById('mouth');
+            const face = document.getElementById('face');
+
+            eyes.forEach((eye, index) => {
+                const rect = eye.getBoundingClientRect();
+                const eyeCenterX = rect.left + rect.width / 2;
+                const eyeCenterY = rect.top + rect.height / 2;
+
+                const angle = Math.atan2(mouseY - eyeCenterY, mouseX - eyeCenterX);
+                const distance = Math.min(
+                    Math.hypot(mouseX - eyeCenterX, mouseY - eyeCenterY),
+                    15 * sensitivity
+                );
+
+                const pupilX = Math.cos(angle) * distance;
+                const pupilY = Math.sin(angle) * distance;
+
+                pupils[index].style.transform = `translate(calc(-50% + ${pupilX}px), calc(-50% + ${pupilY}px))`;
+            });
+
+            // Mover la boca según la posición Y del mouse
+            const mouthOpen = Math.max(10, Math.min(50, (mouseY / window.innerHeight) * 50));
+            mouth.style.height = mouthOpen + 'px';
+            mouth.style.borderRadius = `0 0 ${mouthOpen * 2}px ${mouthOpen * 2}px`;
+
+            // Rotar cara ligeramente hacia el mouse
+            const faceRect = face.getBoundingClientRect();
+            const faceCenterX = faceRect.left + faceRect.width / 2;
+            const rotateY = ((mouseX - faceCenterX) / window.innerWidth) * 20 * sensitivity;
+            const rotateX = ((mouseY - faceRect.top) / window.innerHeight) * -20 * sensitivity;
+            
+            face.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+        }
+
+        // ==========================================
+        // SECCIÓN 2: TILT 3D
+        // ==========================================
+        function updateTilt() {
+            const card = document.getElementById('tiltCard');
+            const rect = card.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const rotateY = ((mouseX - centerX) / (window.innerWidth / 2)) * 25 * sensitivity;
+            const rotateX = ((mouseY - centerY) / (window.innerHeight / 2)) * -25 * sensitivity;
+
+            card.style.transform = `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+
+            // Pupilas en tilt
+            const pupil1 = document.getElementById('tiltPupil1');
+            const pupil2 = document.getElementById('tiltPupil2');
+            
+            const eyeOffsetX = (mouseX - centerX) / 30 * sensitivity;
+            const eyeOffsetY = (mouseY - centerY) / 30 * sensitivity;
+
+            pupil1.style.transform = `translate(calc(-50% + ${eyeOffsetX}px), calc(-50% + ${eyeOffsetY}px))`;
+            pupil2.style.transform = `translate(calc(-50% + ${eyeOffsetX}px), calc(-50% + ${eyeOffsetY}px))`;
+        }
+
+        // ==========================================
+        // SECCIÓN 3: FÍSICA ELÁSTICA
+        // ==========================================
+        function updatePhysics() {
+            const char = document.getElementById('physicsChar');
+            
+            // Física de resorte
+            const dx = mouseX - physicsX;
+            const dy = mouseY - physicsY;
+            
+            velocityX += dx * spring;
+            velocityY += dy * spring;
+            
+            velocityX *= friction;
+            velocityY *= friction;
+            
+            physicsX += velocityX;
+            physicsY += velocityY;
+
+            // Escala según velocidad (efecto de estiramiento)
+            const speed = Math.hypot(velocityX, velocityY);
+            const scaleX = 1 + speed * 0.002;
+            const scaleY = 1 - speed * 0.001;
+            const rotation = velocityX * 0.5;
+
+            char.style.left = (physicsX - 60) + 'px';
+            char.style.top = (physicsY - 60) + 'px';
+            char.style.transform = `rotate(${rotation}deg) scale(${scaleX}, ${scaleY})`;
+
+            // Crear trail
+            if (speed > 5 && Math.random() > 0.7) {
+                createTrail(physicsX, physicsY);
+            }
+        }
+
+        function createTrail(x, y) {
+            const trail = document.createElement('div');
+            trail.className = 'trail';
+            trail.style.left = (x - 10) + 'px';
+            trail.style.top = (y - 10) + 'px';
+            document.getElementById('physicsSection').appendChild(trail);
+            
+            setTimeout(() => {
+                trail.style.opacity = '0';
+                trail.style.transform = 'scale(0)';
+            }, 50);
+            
+            setTimeout(() => trail.remove(), 500);
+        }
+
+        // ==========================================
+        // SECCIÓN 4: SVG MORPHING
+        // ==========================================
+        function updateSVG() {
+            const svg = document.getElementById('svgChar');
+            const rect = svg.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            // Mover pupilas SVG
+            const maxOffset = 15 * sensitivity;
+            const pupil1 = document.getElementById('svgPupil1');
+            const pupil2 = document.getElementById('svgPupil2');
+            
+            const angle1 = Math.atan2(mouseY - (centerY - 20), mouseX - (centerX - 40));
+            const angle2 = Math.atan2(mouseY - (centerY - 20), mouseX - (centerX + 40));
+            
+            const dist1 = Math.min(Math.hypot(mouseX - (centerX - 40), mouseY - (centerY - 20)), 50);
+            const dist2 = Math.min(Math.hypot(mouseX - (centerX + 40), mouseY - (centerY - 20)), 50);
+            
+            const offset1 = Math.min(dist1 / 3, maxOffset);
+            const offset2 = Math.min(dist2 / 3, maxOffset);
+            
+            pupil1.setAttribute('cx', 160 + Math.cos(angle1) * offset1);
+            pupil1.setAttribute('cy', 180 + Math.sin(angle1) * offset1);
+            pupil2.setAttribute('cx', 240 + Math.cos(angle2) * offset2);
+            pupil2.setAttribute('cy', 180 + Math.sin(angle2) * offset2);
+
+            // Distorsionar boca según posición
+            const mouthCurve = 250 + ((mouseY - centerY) / 10);
+            const mouthPath = `M 150 250 Q 200 ${mouthCurve} 250 250`;
+            document.getElementById('svgMouth').setAttribute('d', mouthPath);
+
+            // Rotar grupo facial
+            const rotateY = ((mouseX - centerX) / window.innerWidth) * 15;
+            const rotateX = ((mouseY - centerY) / window.innerHeight) * -15;
+            document.getElementById('faceGroup').style.transform = 
+                `rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
+        }
+
+        // ==========================================
+        // LOOP PRINCIPAL
+        // ==========================================
+        function animate() {
+            updateEyes();
+            updateTilt();
+            updatePhysics();
+            updateSVG();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Efecto adicional: Click para "asustar" al personaje
+        document.addEventListener('click', (e) => {
+            const chars = document.querySelectorAll('.character, .tilt-character, .physics-character');
+            chars.forEach(char => {
+                char.style.transform += ' scale(1.2)';
+                setTimeout(() => {
+                    char.style.transform = char.style.transform.replace(' scale(1.2)', '');
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>
